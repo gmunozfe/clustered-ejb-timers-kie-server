@@ -7,15 +7,14 @@ import static org.junit.Assert.assertNotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import javax.sql.DataSource;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.AfterClass;
@@ -51,8 +50,9 @@ import com.zaxxer.hikari.HikariDataSource;
 @Testcontainers(disabledWithoutDocker=true)
 public class ClusteredEJBTimersIntegrationTest {
     
-    private static final String PREFIX_CLI_PATH = "src/test/resources/etc/jbpm-custom-";
-	private static final String SELECT_COUNT_FROM_JBOSS_EJB_TIMER = "select count(*) from jboss_ejb_timer";
+    public static final String SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER = "select partition_name from jboss_ejb_timer";
+    public static final String PREFIX_CLI_PATH = "src/test/resources/etc/jbpm-custom-";
+    public static final String SELECT_COUNT_FROM_JBOSS_EJB_TIMER = "select count(*) from jboss_ejb_timer";
     public static final String ARTIFACT_ID = "cluster-ejb-sample";
     public static final String GROUP_ID = "org.kie.server.testing";
     public static final String VERSION = "1.0.0";
@@ -74,9 +74,7 @@ public class ClusteredEJBTimersIntegrationTest {
         createCLIFile("node1");
         createCLIFile("node2");
     }
-    
-    
-    
+
     @ClassRule
     public static Network network = Network.newNetwork();
     
@@ -99,6 +97,11 @@ public class ClusteredEJBTimersIntegrationTest {
     private static KieServicesClient ksClient1;
     private static KieServicesClient ksClient2;
     
+    private static ProcessServicesClient processClient1;
+    private static UserTaskServicesClient taskClient2;
+    
+    private static HikariDataSource ds;
+    
     @BeforeClass
     public static void setup() {
         logger.info("KIE SERVER 1 started at port "+kieServer1.getKiePort());
@@ -108,20 +111,13 @@ public class ClusteredEJBTimersIntegrationTest {
         ksClient1 = authenticate(kieServer1.getKiePort(), DEFAULT_USER, DEFAULT_PASSWORD);
         ksClient2 = authenticate(kieServer2.getKiePort(), DEFAULT_USER, DEFAULT_PASSWORD);
         
+        processClient1 = ksClient1.getServicesClient(ProcessServicesClient.class);
+        taskClient2 = ksClient2.getServicesClient(UserTaskServicesClient.class);
+        
         createContainer(ksClient1);
         createContainer(ksClient2);
-    }
-    
-    private static void createCLIFile(String nodeName) {
-        try {
-             String content = FileUtils.readFileToString(new File(PREFIX_CLI_PATH+"template.cli"), "UTF-8");
-             content = content.replaceAll("%partition_name%", "\\\"ejb_timer_"+nodeName+"_part\\\"");
-             File cliFile = new File(PREFIX_CLI_PATH+nodeName+".cli");
-             FileUtils.writeStringToFile(cliFile, content, "UTF-8");
-             cliFile.deleteOnExit();
-          } catch (IOException e) {
-             throw new RuntimeException("Generating file failed", e);
-          }
+        
+        ds = getDataSource();
     }
 
     @AfterClass
@@ -134,101 +130,103 @@ public class ClusteredEJBTimersIntegrationTest {
          .forEach(c -> docker.removeImageCmd(c.getId()).withForce(true).exec());
     }
 
-	@Test
+    @Test
     @DisplayName("user starts process in one node but complete task in another before refresh-time")
     public void completeTaskBeforeRefresh() throws Exception {
         
-        ProcessServicesClient processClient = ksClient1.getServicesClient(ProcessServicesClient.class);
-        Long processInstanceId = processClient.startProcess(containerId, /*"process2HumanTasks"*/ "taskWithEscalation", singletonMap("id", "id1"));
-        assertNotNull(processInstanceId);
+        Long processInstanceId = startProcessInNode1("taskWithEscalation");
         
-        UserTaskServicesClient taskClient = ksClient2.getServicesClient(UserTaskServicesClient.class);
-        List<String> status = Arrays.asList(Status.Ready.toString());
-        List<TaskSummary> taskList = taskClient.findTasksByStatusByProcessInstanceId(processInstanceId, status, 0, 10);
-
-        TaskSummary taskSummary = taskList.get(0);
-        logger.info("Starting task {} on kieserver2", taskSummary.getId());
-        taskClient.startTask(containerId, taskSummary.getId(), DEFAULT_USER);
+        Long taskId = startTaskInNode2(processInstanceId);
         
         assertEquals("there should be just one timer at the table",
                       1, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
         
         assertEquals("timer should be started at node1 partition",
-                     "ejb_timer_node1_part", performQuery("select partition_name from jboss_ejb_timer").getString(1));
+                     "ejb_timer_node1_part", performQuery(SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER).getString(1));
         
-        taskClient.completeTask(containerId, taskSummary.getId(), DEFAULT_USER, null);
-        logger.info("Completed task {} on kieserver2", taskSummary.getId());
+        taskClient2.completeTask(containerId, taskId, DEFAULT_USER, null);
+        logger.info("Completed task {} on kieserver2", taskId);
         
         Thread.sleep(15000);
         
         assertEquals("there shouldn't be any timer at the table",
                      0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
     }
-    
+
     @Test
     @DisplayName("user starts process in one node but complete task in another before refresh-time and session is still alive (2nd human task waiting)")
     public void completeTaskBeforeRefreshWithAliveSession() throws Exception {
         
-        ProcessServicesClient processClient = ksClient1.getServicesClient(ProcessServicesClient.class);
-        Long processInstanceId = processClient.startProcess(containerId, "process2HumanTasks", singletonMap("id", "id1"));
-        assertNotNull(processInstanceId);
+        Long processInstanceId = startProcessInNode1("process2HumanTasks");
         
-        UserTaskServicesClient taskClient = ksClient2.getServicesClient(UserTaskServicesClient.class);
-        List<String> status = Arrays.asList(Status.Ready.toString());
-        List<TaskSummary> taskList = taskClient.findTasksByStatusByProcessInstanceId(processInstanceId, status, 0, 10);
-
-        TaskSummary taskSummary = taskList.get(0);
-        logger.info("Starting task {} on kieserver2", taskSummary.getId());
-        taskClient.startTask(containerId, taskSummary.getId(), DEFAULT_USER);
+        Long taskId = startTaskInNode2(processInstanceId);
         
         assertEquals("there should be just one timer at the table",
                       1, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
         
         assertEquals("timer should be started at node1 partition",
-                     "ejb_timer_node1_part", performQuery("select partition_name from jboss_ejb_timer").getString(1));
+                     "ejb_timer_node1_part", performQuery(SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER).getString(1));
         
-        taskClient.completeTask(containerId, taskSummary.getId(), DEFAULT_USER, null);
-        logger.info("Completed task {} on kieserver2", taskSummary.getId());
+        taskClient2.completeTask(containerId, taskId, DEFAULT_USER, null);
+        logger.info("Completed task {} on kieserver2", taskId);
         
         Thread.sleep(15000);
         
         assertEquals("there shouldn't be any timer at the table",
                      0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
         
-        taskList = taskClient.findTasksByStatusByProcessInstanceId(processInstanceId, status, 0, 10);
+        List<TaskSummary> taskList = findReadyTasks(processInstanceId);
 
         assertEquals(1, taskList.size());
         
-        abortProcess(ksClient2, processClient, processInstanceId);
+        abortProcess(ksClient2, processInstanceId);
     }
     
     @Test
     @DisplayName("user starts process in one node but complete task in another after refresh-time")
     public void completeTaskAfterRefresh() throws Exception {
         
-        ProcessServicesClient processClient = ksClient1.getServicesClient(ProcessServicesClient.class);
-        Long processInstanceId = processClient.startProcess(containerId, "taskWithEscalation", singletonMap("id", "id1"));
-        assertNotNull(processInstanceId);
+        Long processInstanceId = startProcessInNode1("taskWithEscalation");
         
         logger.info("Sleeping 11s so the refresh time is call off");
         Thread.sleep(11000);
         
-        UserTaskServicesClient taskClient = ksClient2.getServicesClient(UserTaskServicesClient.class);
-        List<String> status = Arrays.asList(Status.Ready.toString());
-        List<TaskSummary> taskList = taskClient.findTasksByStatusByProcessInstanceId(processInstanceId, status, 0, 10);
-
-        TaskSummary taskSummary = taskList.get(0);
-        logger.info("Starting task {} on kieserver2", taskSummary.getId());
-        taskClient.startTask(containerId, taskSummary.getId(), DEFAULT_USER);
+        Long taskId = startTaskInNode2(processInstanceId);
         
         assertEquals("there should be just one timer at the table",
                       1, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
         
         assertEquals("timer should be started at node1 partition",
-                     "ejb_timer_node1_part", performQuery("select partition_name from jboss_ejb_timer").getString(1));
+                     "ejb_timer_node1_part", performQuery(SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER).getString(1));
         
-        taskClient.completeTask(containerId, taskSummary.getId(), DEFAULT_USER, null);
-        logger.info("Completed task {} on kieserver2", taskSummary.getId());
+        taskClient2.completeTask(containerId, taskId, DEFAULT_USER, null);
+        logger.info("Completed task {} on kieserver2", taskId);
+        
+        Thread.sleep(4000);
+        
+        assertEquals("there shouldn't be any timer at the table",
+                     0, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
+    }
+    
+    @Test
+    @DisplayName("user starts process in one node but complete task in another after refresh-time and session is still alive (2nd human task waiting)")
+    public void completeTaskAfterRefreshWithAliveSession() throws Exception {
+        
+        Long processInstanceId = startProcessInNode1("process2HumanTasks");
+        
+        logger.info("Sleeping 11s so the refresh time is call off");
+        Thread.sleep(11000);
+        
+        Long taskId = startTaskInNode2(processInstanceId);
+        
+        assertEquals("there should be just one timer at the table",
+                      1, performQuery(SELECT_COUNT_FROM_JBOSS_EJB_TIMER).getInt(1));
+        
+        assertEquals("timer should be started at node1 partition",
+                     "ejb_timer_node1_part", performQuery(SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER).getString(1));
+        
+        taskClient2.completeTask(containerId, taskId, DEFAULT_USER, null);
+        logger.info("Completed task {} on kieserver2", taskId);
         
         Thread.sleep(4000);
         
@@ -243,6 +241,18 @@ public class ClusteredEJBTimersIntegrationTest {
         client.createContainer(containerId, resource);
     }
 
+    private static void createCLIFile(String nodeName) {
+        try {
+             String content = FileUtils.readFileToString(new File(PREFIX_CLI_PATH+"template.cli"), "UTF-8");
+             content = content.replaceAll("%partition_name%", "\\\"ejb_timer_"+nodeName+"_part\\\"");
+             File cliFile = new File(PREFIX_CLI_PATH+nodeName+".cli");
+             FileUtils.writeStringToFile(cliFile, content, "UTF-8");
+             cliFile.deleteOnExit();
+          } catch (IOException e) {
+             throw new RuntimeException("Generating file failed", e);
+          }
+    }
+
     private static KieServicesClient authenticate(int port, String user, String password) {
         String serverUrl = "http://localhost:" + port + "/kie-server/services/rest/server";
         KieServicesConfiguration configuration = KieServicesFactory.newRestConfiguration(serverUrl, user, password);
@@ -251,34 +261,55 @@ public class ClusteredEJBTimersIntegrationTest {
         configuration.setMarshallingFormat(MarshallingFormat.JSON);
         return  KieServicesFactory.newKieServicesClient(configuration);
     }
+
+    private Long startProcessInNode1(String processName) {
+        Long processInstanceId = processClient1.startProcess(containerId, processName, singletonMap("id", "id1"));
+        assertNotNull(processInstanceId);
+        return processInstanceId;
+    }
     
-    private void abortProcess(KieServicesClient kieServicesClient, ProcessServicesClient processClient, Long processInstanceId) {
+    private Long startTaskInNode2(Long processInstanceId) {
+        List<TaskSummary> taskList = findReadyTasks(processInstanceId);
+
+        Long taskId = taskList.get(0).getId();
+        logger.info("Starting task {} on kieserver2", taskId);
+        taskClient2.startTask(containerId, taskId, DEFAULT_USER);
+        return taskId;
+    }
+
+    private List<TaskSummary> findReadyTasks(Long processInstanceId) {
+        List<String> status = Arrays.asList(Status.Ready.toString());
+        List<TaskSummary> taskList = taskClient2.findTasksByStatusByProcessInstanceId(processInstanceId, status, 0, 10);
+        return taskList;
+    }
+
+    private void abortProcess(KieServicesClient kieServicesClient, Long processInstanceId) {
         QueryServicesClient queryClient = kieServicesClient.getServicesClient(QueryServicesClient.class);
         
         ProcessInstance processInstance = queryClient.findProcessInstanceById(processInstanceId);
         assertNotNull(processInstance);
         assertEquals(1, processInstance.getState().intValue());
-        processClient.abortProcessInstance(containerId, processInstanceId);
+        processClient1.abortProcessInstance(containerId, processInstanceId);
     }
     
-    private DataSource getDataSource() {
+    private static HikariDataSource getDataSource() {
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setJdbcUrl(postgreSQLContainer.getJdbcUrl());
         hikariConfig.setUsername(postgreSQLContainer.getUsername());
         hikariConfig.setPassword(postgreSQLContainer.getPassword());
         hikariConfig.setDriverClassName(postgreSQLContainer.getDriverClassName());
-
+        
         return new HikariDataSource(hikariConfig);
     }
     
     protected ResultSet performQuery(String sql) throws SQLException {
-        DataSource ds = getDataSource();
-        Statement statement = ds.getConnection().createStatement();
-        statement.execute(sql);
-        ResultSet resultSet = statement.getResultSet();
-
-        resultSet.next();
-        return resultSet;
+        try (Connection connection = ds.getConnection();
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+           ResultSet rs = statement.executeQuery();
+           rs.next();
+           return rs;
+        }
     }
+    
 }
 
