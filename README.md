@@ -35,7 +35,7 @@ For the third and fourth scenarios, a second human task is waiting, so session i
 
 
 ## Test setup
-![Screenshot from 2021-04-15 18-09-20](https://user-images.githubusercontent.com/1962786/114902162-d9c4fe80-9e15-11eb-9664-b0a09a6bdb67.png)
+![Screenshot from 2021-04-15 18-35-27](https://user-images.githubusercontent.com/1962786/114905634-74730c80-9e19-11eb-998d-1f0488110870.png)
 
 
 
