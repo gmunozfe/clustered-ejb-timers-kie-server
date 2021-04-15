@@ -13,13 +13,13 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 ## Covered scenarios
 
 1. User starts process in one node but completes task in another before refresh-time (timer is triggered after process is completed)
-2. User starts process in one node but completes task in another after refresh-time *(regression scenario)*
-3. User starts process in one node but completes task in another before refresh-time and session is still alive when timer is triggered (2nd human task waiting)
+2. User starts process in one node but completes task in another before refresh-time and session is still alive when timer is triggered (2nd human task waiting) *(regression scenario)*
+3. User starts process in one node but completes task in another after refresh-time (timer is triggered after process is completed) 
 4. User starts process in one node but completes task in another after refresh-time and session is still alive when timer is triggered (2nd human task waiting) *(regression scenario)*
 
 ## Process reproducer
 
-For the first and second scenarios, reproducer process contains just one human task, so process finishes after completing the human task
+For the first and third scenarios, reproducer process contains just one human task, so process finishes after completing the human task
 
 ![Screenshot from 2021-04-15 10-01-33](https://user-images.githubusercontent.com/1962786/114835204-9d6faf00-9dd1-11eb-8401-648da02f703d.png)
 
@@ -29,7 +29,7 @@ For the first and second scenarios, reproducer process contains just one human t
 
 
 
-For the third and fourth scenarios, a second human task is waiting, so session is still alive when the notification triggers.
+For the second and fourth scenarios, a second human task is waiting, so session is still alive when the notification triggers.
 
 ![Screenshot from 2021-04-15 10-00-46](https://user-images.githubusercontent.com/1962786/114835095-829d3a80-9dd1-11eb-8039-23ad91343f72.png)
 
