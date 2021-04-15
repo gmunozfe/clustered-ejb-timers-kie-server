@@ -19,7 +19,7 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 
 ## Process reproducer
 
-For the first and third scenarios, reproducer process contains just one human task, so process finishes after completing the human task
+For the first and third scenarios, reproducer process contains just one human task, so process finishes after completing the human task.
 
 ![Screenshot from 2021-04-15 10-01-33](https://user-images.githubusercontent.com/1962786/114835204-9d6faf00-9dd1-11eb-8401-648da02f703d.png)
 
@@ -37,7 +37,15 @@ For the second and fourth scenarios, a second human task is waiting, so session 
 ## Test setup
 ![Screenshot from 2021-04-15 18-35-27](https://user-images.githubusercontent.com/1962786/114905634-74730c80-9e19-11eb-998d-1f0488110870.png)
 
-:information_source: Notice that KIE server nodes share the same configuration for clustering EJB timers over the same postgresql instance. Only the database *partition* has a different name. Therefore, CLI script to configure datasource and EJB timer cluster would be common for both, parameterizing only `%partition_name%` for each node.
+Test class instantiates different containers:
+- *postgresql* module with initialization script under `/docker-entrypoint-initdb.d` containing `postgresql-jbpm-schema.sql` as explained [here](https://hub.docker.com/_/postgres)
+- two generic containers with the `jboss/kie-server-showcase:7.52.0.Final` image modified by Dockerfile with the [postgresql datasource configuration](https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.3/html-single/configuration_guide/index#example_postgresql_datasource) and the `timer-service`configuration for clustered EJB timers persistence. Patched jar with the fix will also override the targeted jar.
+
+:construction: Multistage Dockerfile is also in charge of building the business application (kjar) used in the scenarios after pulling the *maven* image.
+
+A shared network allows to communicate among containers with the *mappedPort*: KIE servers and postgresql will listen on a random free port, avoiding port clashes and skipping port offsets redefinition. 
+
+:information_source: Notice that KIE server nodes share the same configuration for clustering EJB timers over the same postgresql instance. Only the database *partition* has a different name. Therefore, CLI script to configure datasource and EJB timer cluster would be common for both, parameterizing only `partition_name` for each node.
 
 :bulb: By attaching an output log consumer with different prefix at KIE container startup, traces for each node will be easily distinguished:
 ```
@@ -62,3 +70,4 @@ mvn clean install
 
 for the `kie-server-showcase` scenarios (-Pkie-server, activated by default).
 
+Happy confirmation testing!! :tada::tada::tada:
