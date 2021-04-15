@@ -1,7 +1,7 @@
 Clustered EJB Timers (persisted with postgresql) in jBPM
 ========================================================
 
-There was an issue at **7.52.0.Final** [JBPM-9690](https://issues.redhat.com/browse/JBPM-9690) with KIE server multinode setups when task completition in a different node than the one that started the timer and process has already finished (no session found in that context, which provokes a failing reschedule loop).
+There was an issue at **jBPM 7.52.0.Final** tracked by [JBPM-9690](https://issues.redhat.com/browse/JBPM-9690) with KIE server multinode setups: if a task is completed in a different node than the one that started the timer and process has already finished (no session found in that context), an incorrect reschedule loop is happening.
 
 This project exercises different scenarios after patching the image with the solution provided by the PR [jbpm#1908](https://github.com/kiegroup/jbpm/pull/1908) to test that expected result is achieved and issue has been fixed.
 
@@ -37,7 +37,7 @@ For the second and fourth scenarios, a second human task is waiting, so session 
 ## Test setup
 ![Screenshot from 2021-04-15 18-35-27](https://user-images.githubusercontent.com/1962786/114905634-74730c80-9e19-11eb-998d-1f0488110870.png)
 
-
+:information_source: Notice that KIE server nodes share the same configuration for clustering EJB timers over the same postgresql instance. Only the database *partition* has a different name. Therefore, CLI script to configure datasource and EJB timer cluster would be common for both, parameterizing only `%partition_name%` for each node.
 
 ## Building
 
