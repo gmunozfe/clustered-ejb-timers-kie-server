@@ -1,7 +1,7 @@
 Clustered EJB Timers (persisted with postgresql) in jBPM
 ========================================================
 
-There was an issue at **7.52.0.Final** [JBPM-9690](https://issues.redhat.com/browse/JBPM-9690) with KIE server multinode setups when task completition in a different node than the one that started the timer and process has already finished (session not found).
+There was an issue at **7.52.0.Final** [JBPM-9690](https://issues.redhat.com/browse/JBPM-9690) with KIE server multinode setups when task completition in a different node than the one that started the timer and process has already finished (no session found in that context, which provokes a failing reschedule loop).
 
 This project exercises different scenarios after patching the image with the solution provided by the PR [jbpm#1908](https://github.com/kiegroup/jbpm/pull/1908) to test that expected result is achieved and issue has been fixed.
 
