@@ -12,10 +12,10 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 
 ## Covered scenarios
 
-- User starts process in one node but complete task in another before refresh-time (timer is triggered after process is completed)
-- User starts process in one node but complete task in another after refresh-time *(regression scenario)*
-- User starts process in one node but complete task in another before refresh-time and session is still alive when timer is triggered (2nd human task waiting)
-- User starts process in one node but complete task in another after refresh-time and session is still alive when timer is triggered (2nd human task waiting) *(regression scenario)*
+1. User starts process in one node but completes task in another before refresh-time (timer is triggered after process is completed)
+2. User starts process in one node but completes task in another after refresh-time *(regression scenario)*
+3. User starts process in one node but completes task in another before refresh-time and session is still alive when timer is triggered (2nd human task waiting)
+4. User starts process in one node but completes task in another after refresh-time and session is still alive when timer is triggered (2nd human task waiting) *(regression scenario)*
 
 ## Process reproducer
 
