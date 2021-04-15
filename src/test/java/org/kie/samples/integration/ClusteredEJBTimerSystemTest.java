@@ -48,7 +48,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 @Testcontainers(disabledWithoutDocker=true)
-public class ClusteredEJBTimersIntegrationTest {
+public class ClusteredEJBTimerSystemTest {
     
     public static final String SELECT_PARTITION_NAME_FROM_JBOSS_EJB_TIMER = "select partition_name from jboss_ejb_timer";
     public static final String PREFIX_CLI_PATH = "src/test/resources/etc/jbpm-custom-";
@@ -63,7 +63,7 @@ public class ClusteredEJBTimersIntegrationTest {
 
     public static String containerId = GROUP_ID+":"+ARTIFACT_ID+":"+VERSION;
 
-    private static Logger logger = LoggerFactory.getLogger(ClusteredEJBTimersIntegrationTest.class);
+    private static Logger logger = LoggerFactory.getLogger(ClusteredEJBTimerSystemTest.class);
     
     private static Map<String, String> args = new HashMap<>();
 
@@ -79,7 +79,7 @@ public class ClusteredEJBTimersIntegrationTest {
     public static Network network = Network.newNetwork();
     
     @ClassRule
-    public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>("postgres:11.1")
+    public static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>(System.getProperty("org.kie.samples.image.postgresql","postgres:latest"))
                                         .withDatabaseName("rhpamdatabase")
                                         .withUsername("rhpamuser")
                                         .withPassword("rhpampassword")
