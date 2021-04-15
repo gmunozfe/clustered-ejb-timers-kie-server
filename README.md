@@ -34,6 +34,9 @@ For the third and fourth scenarios, a second human task is waiting, so session i
 ![Screenshot from 2021-04-15 10-00-46](https://user-images.githubusercontent.com/1962786/114835095-829d3a80-9dd1-11eb-8039-23ad91343f72.png)
 
 
+## Test setup
+![Screenshot from 2021-04-15 18-09-20](https://user-images.githubusercontent.com/1962786/114902162-d9c4fe80-9e15-11eb-9664-b0a09a6bdb67.png)
+
 
 
 ## Building
