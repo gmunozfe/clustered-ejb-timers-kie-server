@@ -39,6 +39,13 @@ For the second and fourth scenarios, a second human task is waiting, so session 
 
 :information_source: Notice that KIE server nodes share the same configuration for clustering EJB timers over the same postgresql instance. Only the database *partition* has a different name. Therefore, CLI script to configure datasource and EJB timer cluster would be common for both, parameterizing only `%partition_name%` for each node.
 
+:bulb: By attaching an output log consumer with different prefix at KIE container startup, traces for each node will be easily distinguished:
+```
+[KIE-LOG-node2] STDOUT: 20:32:08,728 INFO  [io.undertow.accesslog] (default task-1) 172.21.0.1 [15/Apr/2021:20:32:08 +0000] "PUT /kie-server/services/rest/server/containers/org.kie.server.testing:cluster-ejb-sample:1.0.0/tasks/1/states/completed HTTP/1.1" 201 
+[KIE-LOG-node1] STDOUT: 20:32:22,410 DEBUG [org.jbpm.services.ejb.timer.EJBTimerScheduler] (EJB default - 1) About to execute timer for job EjbTimerJob [timerJobInstance=GlobalJpaTimerJobInstance [timerServiceId=org.kie.server.testing:cluster-ejb-sample:1.0.0-timerServiceId, getJobHandle()=EjbGlobalJobHandle [uuid=1_1_END]]]
+
+```
+
 ## Building
 
 For building this project locally, you firstly need to have the following tools installed locally:
