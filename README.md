@@ -15,7 +15,7 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 For all covered scenarios, user starts process in one node (*node 1*) but completes task in another (*node 2*). 
 However, there are different combinations based on:
 - there is EJB timer cluster or not
-- task is completed before or after refresh-time
+- task is completed before or after refresh-interval first ocurrence
 - process has finished (session not found) or still alive (waiting on a second human task) when notification is triggered
 
 Following table summarizes which scenarios were failing or not (regression testing) before applying the patch.
@@ -52,7 +52,7 @@ All of them can be tested with this project using a system property for creating
 
 Root cause analysis showed us that when the task is completed in a different node (if this one doesn't belong to the same cluster than the starting node or the refresh time has not happened yet), this node is not aware of the timer and cannot cancel it. 
 
-:bulb: Notice that you may have a configuration of 100 kieserver nodes, distributed in 20 clusters of 5 nodes by giving ever group of 5 a different partition name. In this case, if the task is completed outside the cluster of the starting process node, it would match the "no cluster" scenario.
+:bulb: Notice that you may have a configuration of 100 kieserver nodes, distributed in 20 clusters of 5 nodes by giving to every group of 5 a different partition name. So, if the task is completed by a node outside the cluster of the starting process node, this case would match to the "no cluster" scenario.
 
 ## Reproducer processes
 
