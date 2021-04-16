@@ -65,7 +65,7 @@ For the *finished* scenarios, reproducer process contains just one human task, s
 - process started in node 1, and task completed at node 2
 
 
-For the *not-finished* scenarios, reproducer process contains a second human task that keeps on waiting, so session is still alive when the notification triggers.
+For the *not-finished* scenarios, reproducer process contains a second human task that keeps on waiting, so session is still alive when the notification is triggered.
 
 ![Screenshot from 2021-04-15 10-00-46](https://user-images.githubusercontent.com/1962786/114835095-829d3a80-9dd1-11eb-8039-23ad91343f72.png)
 
