@@ -12,13 +12,13 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 
 ## Covered scenarios and root cause analysis
 
-For all covered scenarios, user starts process in one node (node 1) but completes task in another (node 2). 
+For all covered scenarios, user starts process in one node (*node 1*) but completes task in another (*node 2*). 
 However, there are different combinations based on:
 - there is EJB timer cluster or not
 - task is completed before or after refresh-time
 - process has finished (session not found) or still alive (waiting on a second human task) when notification is triggered
 
-Following decision table summarizes which scenarios were failing or not (regression testing) before applying the patch.
+Following table summarizes which scenarios were failing or not (regression testing) before applying the patch.
 
 <table class="table">
   <thead class="thead-dark">
@@ -110,6 +110,6 @@ and the following for no-cluster scenarios:
 mvn clean install -Dorg.kie.samples.ejbtimer.nocluster=true
 ```
 
-This project is using only `kie-server-showcase` image but it is prepared for adding other images defining other profiles (-Pkie-server, activated by default).
+This project is using only `kie-server-showcase` image but it is prepared for adding other images at any other profile (current default profile is *kie-server*).
 
 Happy confirmation testing!! :tada::tada::tada:
