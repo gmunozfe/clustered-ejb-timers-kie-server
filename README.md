@@ -12,24 +12,54 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 
 ## Covered scenarios
 
-1. User starts process in one node but completes task in another before refresh-time (timer is triggered after process is completed)
-2. User starts process in one node but completes task in another before refresh-time and session is still alive when timer is triggered (2nd human task waiting) *(regression scenario)*
-3. User starts process in one node but completes task in another after refresh-time (timer is triggered after process is completed) 
-4. User starts process in one node but completes task in another after refresh-time and session is still alive when timer is triggered (2nd human task waiting) *(regression scenario)*
+For all covered scenarios, user starts process in one node (node 1) but completes task in another (node 2). 
+However, there are different combinations based on:
+- there is EJB timer cluster or not
+- task is completed before or after refresh-time
+- process has finished (session not found) or still alive (waiting on a second human task) when notification is triggered
 
-## Process reproducer
+Following decision table summarizes which scenarios were failing or not (regression testing) before applying the patch.
 
-For the first and third scenarios, reproducer process contains just one human task, so process finishes after completing the human task.
+<table class="table">
+  <thead class="thead-dark">
+    <tr>
+      <th>
+      <th align="center" colspan="2">Cluster</th>
+      <th align="center" colspan="2">No Cluster</th>
+    </tr>
+    <tr>
+      <th>
+      <th>Finished
+      <th>Not Finished
+      <th>Finished
+      <th>Not Finished
+  </thead>
+  <tr>
+    <td align="center">task completed <strong>before</strong> refresh
+    <td align="center">regression
+    <td align="center"><em>failing</em>
+    <td align="center">regression
+    <td align="center"><em>failing</em>
+   <tr>
+    <td align="center">task completed <strong>after</strong> refresh
+    <td align="center">regression
+    <td align="center">regression
+    <td align="center">regression
+    <td align="center"><em>failing</em>
+</table>
+
+## Reproducer processes
+
+For the *finished* scenarios, reproducer process contains just one human task, so process finishes after completing the human task.
 
 ![Screenshot from 2021-04-15 10-01-33](https://user-images.githubusercontent.com/1962786/114835204-9d6faf00-9dd1-11eb-8401-648da02f703d.png)
 
 - *refresh-interval* is 10 seconds
 - *not-completed notification* repeated each 15 seconds
-- process started in node 1, but task completed at node 2 (therefore notification is launched at node 1)
+- process started in node 1, and task completed at node 2
 
 
-
-For the second and fourth scenarios, a second human task is waiting, so session is still alive when the notification triggers.
+For the *not-finished* scenarios, reproducer process contains a second human task that keeps on waiting, so session is still alive when the notification triggers.
 
 ![Screenshot from 2021-04-15 10-00-46](https://user-images.githubusercontent.com/1962786/114835095-829d3a80-9dd1-11eb-8039-23ad91343f72.png)
 
@@ -39,13 +69,13 @@ For the second and fourth scenarios, a second human task is waiting, so session 
 
 Test class instantiates different containers:
 - *postgresql* module with initialization script under `/docker-entrypoint-initdb.d` containing `postgresql-jbpm-schema.sql` as explained [here](https://hub.docker.com/_/postgres)
-- two generic containers with the `jboss/kie-server-showcase:7.52.0.Final` image modified by Dockerfile with the [postgresql datasource configuration](https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.3/html-single/configuration_guide/index#example_postgresql_datasource) and the `timer-service`configuration for clustered EJB timers persistence. Patched jar with the fix will also override the targeted jar.
+- two generic containers with the `jboss/kie-server-showcase:7.52.0.Final` image modified by Dockerfile with the [postgresql datasource configuration](https://access.redhat.com/documentation/en-us/red_hat_jboss_enterprise_application_platform/7.3/html-single/configuration_guide/index#example_postgresql_datasource) and the `timer-service`configuration for EJB timers persistence. Patched jar with the fix will also override the targeted jar.
 
 :construction: Multistage Dockerfile is also in charge of building the business application (kjar) used in the scenarios after pulling the *maven* image.
 
 A shared network allows to communicate among containers with the *mappedPort*: KIE servers and postgresql will listen on a random free port, avoiding port clashes and skipping port offsets redefinition. 
 
-:information_source: Notice that KIE server nodes share the same configuration for clustering EJB timers over the same postgresql instance. Only the database *partition* has a different name. Therefore, CLI script to configure datasource and EJB timer cluster would be common for both, parameterizing only `partition_name` for each node.
+:information_source: Notice that for no clustering EJB timers is needed to define *partition* with a different name for each node. Therefore, CLI script to configure datasource and EJB timer cluster would be common for both, parameterizing only `partition_name` for each node.
 
 :bulb: By attaching an output log consumer with different prefix at KIE container startup, traces for each node will be easily distinguished:
 ```
@@ -62,12 +92,18 @@ For building this project locally, you firstly need to have the following tools 
 - Maven
 - docker (because of testcontainers makes use of it).
 
-Once you cloned the repository locally all you need to do is execute the following Maven build:
+Once you cloned the repository locally all you need to do is execute the following Maven build (for cluster scenarios):
 
 ```
 mvn clean install
 ```
 
-for the `kie-server-showcase` scenarios (-Pkie-server, activated by default).
+and the following for no-cluster scenarios:
+
+```
+mvn clean install -Dorg.kie.samples.ejbtimer.nocluster=true
+```
+
+This project is using only `kie-server-showcase` image but it is prepared for adding other images defining other profiles (-Pkie-server, activated by default).
 
 Happy confirmation testing!! :tada::tada::tada:
