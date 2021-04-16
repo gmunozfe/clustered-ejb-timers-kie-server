@@ -10,7 +10,7 @@ It takes advantage of [testcontainers](https://www.testcontainers.org) library, 
 - patch the image with the fixed classes at the corresponding jar
 - invoke a custom cli scripts to configure postgresql persistence and the clustered EJB timers support
 
-## Covered scenarios
+## Covered scenarios and root cause analysis
 
 For all covered scenarios, user starts process in one node (node 1) but completes task in another (node 2). 
 However, there are different combinations based on:
@@ -47,6 +47,12 @@ Following decision table summarizes which scenarios were failing or not (regress
     <td align="center">regression
     <td align="center"><em>failing</em>
 </table>
+
+All of them can be tested with this project using a system property for creating or not clusters in the same partition.
+
+Root cause analysis showed us that when the task is completed in a different node (if this one doesn't belong to the same cluster than the starting node or the refresh time has not happened yet), this node is not aware of the timer and cannot cancel it. 
+
+:bulb: Notice that you may have a configuration of 100 kieserver nodes, distributed in 20 clusters of 5 nodes by giving ever group of 5 a different partition name. In this case, if the task is completed outside the cluster of the starting process node, it would match the "no cluster" scenario.
 
 ## Reproducer processes
 
