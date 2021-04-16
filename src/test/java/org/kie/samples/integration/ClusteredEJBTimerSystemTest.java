@@ -242,9 +242,12 @@ public class ClusteredEJBTimerSystemTest {
     }
 
     private static void createCLIFile(String nodeName) {
+        Boolean noCluster = Boolean.getBoolean("org.kie.samples.ejbtimer.nocluster");
+        //if different partitions are defined per nodeName, then there is no cluster for EJB timers
+        String node = noCluster? nodeName : "node1";
         try {
              String content = FileUtils.readFileToString(new File(PREFIX_CLI_PATH+"template.cli"), "UTF-8");
-             content = content.replaceAll("%partition_name%", "\\\"ejb_timer_"+nodeName+"_part\\\"");
+             content = content.replaceAll("%partition_name%", "\\\"ejb_timer_"+node+"_part\\\"");
              File cliFile = new File(PREFIX_CLI_PATH+nodeName+".cli");
              FileUtils.writeStringToFile(cliFile, content, "UTF-8");
              cliFile.deleteOnExit();
@@ -303,9 +306,8 @@ public class ClusteredEJBTimerSystemTest {
     }
     
     protected ResultSet performQuery(String sql) throws SQLException {
-        try (Connection connection = ds.getConnection();
-        PreparedStatement statement = connection.prepareStatement(sql)) {
-           ResultSet rs = statement.executeQuery();
+        try (Connection conn = ds.getConnection(); PreparedStatement st = conn.prepareStatement(sql)) {
+           ResultSet rs = st.executeQuery();
            rs.next();
            return rs;
         }

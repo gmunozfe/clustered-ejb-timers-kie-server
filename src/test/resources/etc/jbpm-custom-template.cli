@@ -3,6 +3,7 @@ embed-server --server-config=standalone-full-kie-server.xml
 ## Activate trace, if needed
 ##---------------------------
 ##/subsystem=logging/logger=org.jboss.security/:add(level=TRACE,use-parent-handlers=true)
+/subsystem=logging/logger=org.jboss.as.ejb3.timer:add(level=DEBUG,use-parent-handlers=true)
 /subsystem=logging/logger=org.jbpm/:add(level=TRACE,use-parent-handlers=true)
 /subsystem=logging/logger=org.kie/:add(level=TRACE,use-parent-handlers=true)
 ##/subsystem=logging/logger=org.wildfly.security/:add(level=TRACE,use-parent-handlers=true)
