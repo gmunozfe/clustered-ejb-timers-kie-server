@@ -29,10 +29,10 @@ Following table summarizes which scenarios were failing or not (regression testi
     </tr>
     <tr>
       <th>
-      <th>Not Finished
-      <th>Finished
-      <th>Not Finished
-      <th>Finished
+      <th>Process Not Finished
+      <th>Process Finished
+      <th>Process Not Finished
+      <th>Process Finished
   </thead>
   <tr>
     <td align="center">task completed <strong>before</strong> refresh
